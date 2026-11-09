@@ -15,6 +15,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class LikeServiceImpl implements LikeService {
@@ -83,5 +86,37 @@ public class LikeServiceImpl implements LikeService {
                 .tweetId(tweet.getId())
                 .userId(user.getId())
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LikeResponse> findByUserId(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new TwitterException("User not found with id: " + userId, HttpStatus.NOT_FOUND);
+        }
+        return likeRepository.findAllByUserId(userId)
+                .stream()
+                .map(like -> LikeResponse.builder()
+                        .message("Liked")
+                        .tweetId(like.getTweet().getId())
+                        .userId(like.getUser().getId())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LikeResponse> findByTweetId(Long tweetId) {
+        if (!tweetRepository.existsById(tweetId)) {
+            throw new TwitterException("Tweet not found with id: " + tweetId, HttpStatus.NOT_FOUND);
+        }
+        return likeRepository.findAllByTweetId(tweetId)
+                .stream()
+                .map(like -> LikeResponse.builder()
+                        .message("Liked")
+                        .tweetId(like.getTweet().getId())
+                        .userId(like.getUser().getId())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

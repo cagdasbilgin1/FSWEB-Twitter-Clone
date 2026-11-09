@@ -11,6 +11,5 @@ public interface TweetService {
     List<TweetResponse> findByUserId(Long userId);
     TweetResponse findById(Long id);
     List<TweetResponse> findAll();
-    TweetResponse update(Long id, TweetRequest request, User currentUser);
     void delete(Long id, User currentUser, Long userId);
 }

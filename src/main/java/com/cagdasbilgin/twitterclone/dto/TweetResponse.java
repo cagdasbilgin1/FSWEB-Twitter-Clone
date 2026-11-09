@@ -19,5 +19,7 @@ public class TweetResponse {
     private int likeCount;
     private int commentCount;
     private int retweetCount;
+    private List<Long> likedByUserIds;
+    private List<Long> retweetedByUserIds;
     private List<CommentResponse> comments;
 }

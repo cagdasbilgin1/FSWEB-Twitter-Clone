@@ -76,13 +76,6 @@ public class TweetController {
         return ResponseEntity.ok(tweetService.findAll());
     }
 
-    // Supports: PUT /tweet/:id
-    @PutMapping("/{id}")
-    public ResponseEntity<TweetResponse> update(@PathVariable Long id, @Valid @RequestBody TweetRequest request) {
-        User currentUser = getCurrentUserOrNull();
-        return ResponseEntity.ok(tweetService.update(id, request, currentUser));
-    }
-
     // Supports: DELETE /tweet/:id and DELETE /tweet/:id?userId=1
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id, @RequestParam(name = "userId", required = false) Long userId) {

@@ -39,6 +39,14 @@ public class RetweetController {
         return ResponseEntity.noContent().build();
     }
 
+    // Supports: DELETE http://localhost:3000/retweet/tweet/:tweetId?userId=1
+    @DeleteMapping("/tweet/{tweetId}")
+    public ResponseEntity<Void> deleteRetweetByTweetId(@PathVariable Long tweetId, @RequestParam(name = "userId", required = false) Long userId) {
+        User currentUser = getCurrentUserOrNull();
+        retweetService.deleteByTweetId(tweetId, currentUser, userId);
+        return ResponseEntity.noContent().build();
+    }
+
     // Supports: GET http://localhost:3000/retweet/user/:userId
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<RetweetResponse>> findByUserId(@PathVariable Long userId) {

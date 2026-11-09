@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -99,5 +100,74 @@ class LikeServiceTest {
         TwitterException ex = assertThrows(TwitterException.class, () -> likeService.dislike(request, user));
         assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
         verify(likeRepository, never()).delete(any());
+    }
+
+    @Test
+    void like_WhenRequestHasUserId_ShouldSaveLike() {
+        LikeRequest request = LikeRequest.builder().tweetId(10L).userId(1L).build();
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(tweetRepository.findById(10L)).thenReturn(Optional.of(tweet));
+        when(likeRepository.existsByUserIdAndTweetId(1L, 10L)).thenReturn(false);
+
+        LikeResponse response = likeService.like(request, null);
+
+        assertNotNull(response);
+        assertEquals(10L, response.getTweetId());
+        assertEquals(1L, response.getUserId());
+        verify(likeRepository, times(1)).save(any(Like.class));
+    }
+
+    @Test
+    void like_WhenNoUserProvided_ShouldThrowBadRequest() {
+        LikeRequest request = LikeRequest.builder().tweetId(10L).build();
+
+        TwitterException ex = assertThrows(TwitterException.class, () -> likeService.like(request, null));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        verify(likeRepository, never()).save(any());
+    }
+
+    @Test
+    void like_WhenTweetNotFound_ShouldThrowNotFound() {
+        LikeRequest request = LikeRequest.builder().tweetId(999L).build();
+
+        when(tweetRepository.findById(999L)).thenReturn(Optional.empty());
+
+        TwitterException ex = assertThrows(TwitterException.class, () -> likeService.like(request, user));
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatus());
+        verify(likeRepository, never()).save(any());
+    }
+
+    @Test
+    void findByUserId_WhenUserExists_ShouldReturnLikes() {
+        Like like = Like.builder().id(5L).user(user).tweet(tweet).build();
+        when(userRepository.existsById(1L)).thenReturn(true);
+        when(likeRepository.findAllByUserId(1L)).thenReturn(List.of(like));
+
+        List<LikeResponse> responses = likeService.findByUserId(1L);
+
+        assertEquals(1, responses.size());
+        assertEquals(10L, responses.get(0).getTweetId());
+        assertEquals(1L, responses.get(0).getUserId());
+    }
+
+    @Test
+    void findByUserId_WhenUserNotFound_ShouldThrowNotFound() {
+        when(userRepository.existsById(99L)).thenReturn(false);
+
+        TwitterException ex = assertThrows(TwitterException.class, () -> likeService.findByUserId(99L));
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatus());
+    }
+
+    @Test
+    void findByTweetId_WhenTweetExists_ShouldReturnLikes() {
+        Like like = Like.builder().id(5L).user(user).tweet(tweet).build();
+        when(tweetRepository.existsById(10L)).thenReturn(true);
+        when(likeRepository.findAllByTweetId(10L)).thenReturn(List.of(like));
+
+        List<LikeResponse> responses = likeService.findByTweetId(10L);
+
+        assertEquals(1, responses.size());
+        assertEquals(10L, responses.get(0).getTweetId());
     }
 }

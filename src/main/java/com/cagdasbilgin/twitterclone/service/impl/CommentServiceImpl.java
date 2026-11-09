@@ -29,6 +29,10 @@ public class CommentServiceImpl implements CommentService {
     @Override
     @Transactional
     public CommentResponse create(CommentRequest request, User currentUser) {
+        if (request.getTweetId() == null) {
+            throw new TwitterException("Tweet ID is required", HttpStatus.BAD_REQUEST);
+        }
+
         User author = currentUser;
         if (author == null && request.getUserId() != null) {
             author = userRepository.findById(request.getUserId())

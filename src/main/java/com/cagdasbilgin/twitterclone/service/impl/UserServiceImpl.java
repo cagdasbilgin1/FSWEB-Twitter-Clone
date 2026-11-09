@@ -36,6 +36,10 @@ public class UserServiceImpl implements UserService, UserDetailsService {
             throw new TwitterException("Email already exists", HttpStatus.BAD_REQUEST);
         }
 
+        if (request.getPassword() == null || request.getPassword().isBlank()) {
+            throw new TwitterException("Password cannot be blank", HttpStatus.BAD_REQUEST);
+        }
+
         User user = User.builder()
                 .username(request.getUsername())
                 .email(request.getEmail())
@@ -56,7 +60,9 @@ public class UserServiceImpl implements UserService, UserDetailsService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
-        User user = userRepository.findByUsername(request.getUsername())
+        String identifier = request.getUsername();
+        User user = userRepository.findByUsername(identifier)
+                .or(() -> userRepository.findByEmail(identifier))
                 .orElseThrow(() -> new TwitterException("Invalid username or password", HttpStatus.UNAUTHORIZED));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -96,8 +102,9 @@ public class UserServiceImpl implements UserService, UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+    public UserDetails loadUserByUsername(String identifier) throws UsernameNotFoundException {
+        return userRepository.findByUsername(identifier)
+                .or(() -> userRepository.findByEmail(identifier))
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + identifier));
     }
 }

@@ -20,6 +20,6 @@ public class RegisterRequest {
     private String email;
 
     @NotBlank(message = "Password cannot be blank")
-    @Size(min = 4, message = "Password must be at least 4 characters")
+    @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
 }

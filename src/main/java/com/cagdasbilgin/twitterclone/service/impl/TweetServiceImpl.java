@@ -14,6 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -79,26 +80,6 @@ public class TweetServiceImpl implements TweetService {
 
     @Override
     @Transactional
-    public TweetResponse update(Long id, TweetRequest request, User currentUser) {
-        Tweet tweet = tweetRepository.findById(id)
-                .orElseThrow(() -> new TwitterException("Tweet not found with id: " + id, HttpStatus.NOT_FOUND));
-
-        Long callerId = currentUser != null ? currentUser.getId() : request.getUserId();
-        if (callerId == null) {
-            throw new TwitterException("Authentication or userId is required to update a tweet", HttpStatus.UNAUTHORIZED);
-        }
-
-        if (!tweet.getUser().getId().equals(callerId)) {
-            throw new TwitterException("Only the author can update this tweet", HttpStatus.FORBIDDEN);
-        }
-
-        tweet.setContent(request.getContent());
-        Tweet updated = tweetRepository.save(tweet);
-        return mapToResponse(updated);
-    }
-
-    @Override
-    @Transactional
     public void delete(Long id, User currentUser, Long userId) {
         Tweet tweet = tweetRepository.findById(id)
                 .orElseThrow(() -> new TwitterException("Tweet not found with id: " + id, HttpStatus.NOT_FOUND));
@@ -117,7 +98,26 @@ public class TweetServiceImpl implements TweetService {
 
     private TweetResponse mapToResponse(Tweet tweet) {
         List<CommentResponse> commentResponses = tweet.getComments() != null
-                ? tweet.getComments().stream().map(this::mapCommentToResponse).collect(Collectors.toList())
+                ? tweet.getComments().stream()
+                    .sorted(Comparator.comparing(Comment::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .map(this::mapCommentToResponse)
+                    .collect(Collectors.toList())
+                : List.of();
+
+        List<Long> likedByUserIds = tweet.getLikes() != null
+                ? tweet.getLikes().stream()
+                    .filter(like -> like.getUser() != null && like.getUser().getId() != null)
+                    .map(like -> like.getUser().getId())
+                    .distinct()
+                    .collect(Collectors.toList())
+                : List.of();
+
+        List<Long> retweetedByUserIds = tweet.getRetweets() != null
+                ? tweet.getRetweets().stream()
+                    .filter(retweet -> retweet.getUser() != null && retweet.getUser().getId() != null)
+                    .map(retweet -> retweet.getUser().getId())
+                    .distinct()
+                    .collect(Collectors.toList())
                 : List.of();
 
         return TweetResponse.builder()
@@ -130,6 +130,8 @@ public class TweetServiceImpl implements TweetService {
                 .likeCount((int) likeRepository.countByTweetId(tweet.getId()))
                 .commentCount(commentResponses.size())
                 .retweetCount((int) retweetRepository.countByTweetId(tweet.getId()))
+                .likedByUserIds(likedByUserIds)
+                .retweetedByUserIds(retweetedByUserIds)
                 .comments(commentResponses)
                 .build();
     }

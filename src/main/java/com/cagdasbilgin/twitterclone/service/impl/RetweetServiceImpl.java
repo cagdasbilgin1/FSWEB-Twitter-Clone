@@ -42,6 +42,10 @@ public class RetweetServiceImpl implements RetweetService {
         Tweet tweet = tweetRepository.findById(request.getTweetId())
                 .orElseThrow(() -> new TwitterException("Tweet not found with id: " + request.getTweetId(), HttpStatus.NOT_FOUND));
 
+        if (tweet.getUser() != null && user.getId().equals(tweet.getUser().getId())) {
+            throw new TwitterException("You cannot retweet your own tweet", HttpStatus.BAD_REQUEST);
+        }
+
         if (retweetRepository.existsByUserIdAndTweetId(user.getId(), tweet.getId())) {
             throw new TwitterException("You have already retweeted this tweet", HttpStatus.BAD_REQUEST);
         }
@@ -72,6 +76,24 @@ public class RetweetServiceImpl implements RetweetService {
         if (!isRetweeter && !isOriginalAuthor) {
             throw new TwitterException("Only the retweeter or original tweet author can delete this retweet", HttpStatus.FORBIDDEN);
         }
+
+        retweetRepository.delete(retweet);
+    }
+
+    @Override
+    @Transactional
+    public void deleteByTweetId(Long tweetId, User currentUser, Long userId) {
+        Long callerId = currentUser != null ? currentUser.getId() : userId;
+        if (callerId == null) {
+            throw new TwitterException("Authentication or userId is required to undo a retweet", HttpStatus.UNAUTHORIZED);
+        }
+
+        if (!tweetRepository.existsById(tweetId)) {
+            throw new TwitterException("Tweet not found with id: " + tweetId, HttpStatus.NOT_FOUND);
+        }
+
+        Retweet retweet = retweetRepository.findByUserIdAndTweetId(callerId, tweetId)
+                .orElseThrow(() -> new TwitterException("You have not retweeted this tweet", HttpStatus.BAD_REQUEST));
 
         retweetRepository.delete(retweet);
     }

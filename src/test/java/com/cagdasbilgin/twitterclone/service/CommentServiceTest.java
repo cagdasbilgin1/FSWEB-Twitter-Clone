@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -133,5 +134,70 @@ class CommentServiceTest {
         TwitterException ex = assertThrows(TwitterException.class, () -> commentService.delete(50L, stranger, null));
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
         verify(commentRepository, never()).delete(any());
+    }
+
+    @Test
+    void create_WhenRequestHasUserId_ShouldSaveComment() {
+        CommentRequest request = CommentRequest.builder()
+                .content("Nice tweet!")
+                .tweetId(100L)
+                .userId(2L)
+                .build();
+
+        when(userRepository.findById(2L)).thenReturn(Optional.of(commentAuthor));
+        when(tweetRepository.findById(100L)).thenReturn(Optional.of(tweet));
+        when(commentRepository.save(any(Comment.class))).thenReturn(comment);
+
+        CommentResponse response = commentService.create(request, null);
+
+        assertNotNull(response);
+        assertEquals(2L, response.getUserId());
+        assertEquals("comment_author", response.getUsername());
+        verify(commentRepository, times(1)).save(any(Comment.class));
+    }
+
+    @Test
+    void create_WhenTweetIdMissing_ShouldThrowBadRequest() {
+        CommentRequest request = CommentRequest.builder()
+                .content("Missing tweetId")
+                .build();
+
+        TwitterException ex = assertThrows(TwitterException.class, () -> commentService.create(request, commentAuthor));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        verify(commentRepository, never()).save(any());
+    }
+
+    @Test
+    void create_WhenTweetNotFound_ShouldThrowNotFound() {
+        CommentRequest request = CommentRequest.builder()
+                .content("Great post!")
+                .tweetId(999L)
+                .build();
+
+        when(tweetRepository.findById(999L)).thenReturn(Optional.empty());
+
+        TwitterException ex = assertThrows(TwitterException.class, () -> commentService.create(request, commentAuthor));
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatus());
+        verify(commentRepository, never()).save(any());
+    }
+
+    @Test
+    void findByTweetId_WhenTweetExists_ShouldReturnComments() {
+        when(tweetRepository.existsById(100L)).thenReturn(true);
+        when(commentRepository.findAllByTweetIdOrderByCreatedAtAsc(100L)).thenReturn(List.of(comment));
+
+        List<CommentResponse> responses = commentService.findByTweetId(100L);
+
+        assertEquals(1, responses.size());
+        assertEquals("Nice tweet!", responses.get(0).getContent());
+        assertEquals(100L, responses.get(0).getTweetId());
+    }
+
+    @Test
+    void findByTweetId_WhenTweetNotFound_ShouldThrowNotFound() {
+        when(tweetRepository.existsById(999L)).thenReturn(false);
+
+        TwitterException ex = assertThrows(TwitterException.class, () -> commentService.findByTweetId(999L));
+        assertEquals(HttpStatus.NOT_FOUND, ex.getStatus());
     }
 }

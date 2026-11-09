@@ -41,6 +41,62 @@ Hedef:
  - Yukarda bahsedilen endpointler dışında /register ve /login isminde 2 tane daha endpointiniz olmalı ve security katmanını Spring Security kullanarak yönetmelisiniz.
  - Projenizde yazılmış fonksiyonları %30'u için Unit Test yazmanız baklenmektedir.
 
+# Veritabanı Diyagramı (Database ER Diagram)
+
+![Database Diagram](docs/database-diagram.png)
+
+```mermaid
+erDiagram
+    users ||--o{ tweets : "has many"
+    users ||--o{ comments : "writes"
+    users ||--o{ likes : "gives"
+    users ||--o{ retweets : "makes"
+
+    tweets ||--o{ comments : "contains"
+    tweets ||--o{ likes : "receives"
+    tweets ||--o{ retweets : "receives"
+
+    users {
+        bigint id PK
+        varchar username
+        varchar email
+        varchar password
+        varchar role
+        timestamp created_at
+    }
+
+    tweets {
+        bigint id PK
+        text content
+        bigint user_id FK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    comments {
+        bigint id PK
+        text content
+        bigint user_id FK
+        bigint tweet_id FK
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    likes {
+        bigint id PK
+        bigint user_id FK
+        bigint tweet_id FK
+        timestamp created_at
+    }
+
+    retweets {
+        bigint id PK
+        bigint user_id FK
+        bigint tweet_id FK
+        timestamp created_at
+    }
+```
+
 
 # FullStack Developer Muscles:
 

@@ -2,6 +2,9 @@ package com.cagdasbilgin.twitterclone.service;
 
 import com.cagdasbilgin.twitterclone.dto.TweetRequest;
 import com.cagdasbilgin.twitterclone.dto.TweetResponse;
+import com.cagdasbilgin.twitterclone.entity.Comment;
+import com.cagdasbilgin.twitterclone.entity.Like;
+import com.cagdasbilgin.twitterclone.entity.Retweet;
 import com.cagdasbilgin.twitterclone.entity.Tweet;
 import com.cagdasbilgin.twitterclone.entity.User;
 import com.cagdasbilgin.twitterclone.exception.TwitterException;
@@ -141,34 +144,6 @@ class TweetServiceTest {
     }
 
     @Test
-    void update_WhenOwner_ShouldUpdateContent() {
-        TweetRequest updateReq = TweetRequest.builder()
-                .content("Updated content")
-                .userId(1L)
-                .build();
-
-        when(tweetRepository.findById(10L)).thenReturn(Optional.of(tweet));
-        when(tweetRepository.save(any(Tweet.class))).thenReturn(tweet);
-
-        TweetResponse response = tweetService.update(10L, updateReq, user);
-
-        assertNotNull(response);
-        verify(tweetRepository, times(1)).save(tweet);
-    }
-
-    @Test
-    void update_WhenNotOwner_ShouldThrowForbidden() {
-        User otherUser = User.builder().id(2L).username("hacker").build();
-        TweetRequest updateReq = TweetRequest.builder().content("Hacked").build();
-
-        when(tweetRepository.findById(10L)).thenReturn(Optional.of(tweet));
-
-        TwitterException ex = assertThrows(TwitterException.class, () -> tweetService.update(10L, updateReq, otherUser));
-        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
-        verify(tweetRepository, never()).save(tweet);
-    }
-
-    @Test
     void delete_WhenOwner_ShouldDeleteTweet() {
         when(tweetRepository.findById(10L)).thenReturn(Optional.of(tweet));
 
@@ -184,5 +159,30 @@ class TweetServiceTest {
         TwitterException ex = assertThrows(TwitterException.class, () -> tweetService.delete(10L, otherUser, null));
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
         verify(tweetRepository, never()).delete(any());
+    }
+
+    @Test
+    void findById_ShouldIncludeLikesRetweetsAndCommentsMetadata() {
+        User fan = User.builder().id(5L).username("fan_user").build();
+        tweet.getLikes().add(Like.builder().id(1L).user(fan).tweet(tweet).build());
+        tweet.getRetweets().add(Retweet.builder().id(2L).user(fan).tweet(tweet).build());
+        tweet.getComments().add(Comment.builder()
+                .id(3L)
+                .content("Awesome!")
+                .user(fan)
+                .tweet(tweet)
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        when(tweetRepository.findById(10L)).thenReturn(Optional.of(tweet));
+        when(likeRepository.countByTweetId(10L)).thenReturn(1L);
+        when(retweetRepository.countByTweetId(10L)).thenReturn(1L);
+
+        TweetResponse response = tweetService.findById(10L);
+
+        assertEquals(List.of(5L), response.getLikedByUserIds());
+        assertEquals(List.of(5L), response.getRetweetedByUserIds());
+        assertEquals(1, response.getCommentCount());
+        assertEquals("Awesome!", response.getComments().get(0).getContent());
     }
 }
